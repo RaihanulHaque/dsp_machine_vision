@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-World Pathfinding Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .grid-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .grid {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+        }
+        .grid h3 {
+            text-align: center;
+            margin-top: 0;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .cell {
+            width: 20px;
+            height: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: inline-block;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .cell:hover {
+            transform: scale(1.1);
+        }
+        .empty { background-color: rgba(255, 255, 255, 0.9); }
+        .wall { background-color: #2c3e50; }
+        .start { background-color: #27ae60; box-shadow: 0 0 10px #27ae60; }
+        .end { background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }
+        .visited { background-color: #3498db; opacity: 0.7; }
+        .path { background-color: #f39c12; box-shadow: 0 0 8px #f39c12; }
+        .stats {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 120px;
+        }
+        .legend {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .mode-selector {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .mode-selector label {
+            margin: 0 10px;
+            cursor: pointer;
+        }
+        .info {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Real-World Pathfinding Simulation</h1>
+        <div class="info">
+            Simulates GPS-like navigation with 8-directional movement (including diagonals)<br>
+            Diagonal moves cost √2 ≈ 1.414, straight moves cost 1.0
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: rgba(255,255,255,0.9);"></div>
+                <span>Empty Road</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #2c3e50;"></div>
+                <span>Obstacle</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #27ae60;"></div>
+                <span>Start</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e74c3c;"></div>
+                <span>Destination</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #3498db;"></div>
+                <span>Explored</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #f39c12;"></div>
+                <span>Optimal Path</span>
+            </div>
+        </div>
+
+        <div class="mode-selector">
+            <label><input type="radio" name="editMode" value="wall" checked> Add Obstacles</label>
+            <label><input type="radio" name="editMode" value="start"> Set Start</label>
+            <label><input type="radio" name="editMode" value="end"> Set Destination</label>
+        </div>
+
+        <div class="controls">
+            <button onclick="runDijkstra()">Run Dijkstra's Algorithm</button>
+            <button onclick="runAStar()">Run A* Algorithm</button>
+            <button onclick="clearPath()">Clear Paths</button>
+            <button onclick="generateMaze()">Generate Random Obstacles</button>
+            <button onclick="clearGrid()">Clear All</button>
+        </div>
+
+        <div class="grid-container">
+            <div class="grid">
+                <h3>Dijkstra's Algorithm</h3>
+                <div id="dijkstra-grid"></div>
+            </div>
+            <div class="grid">
+                <h3>A* Algorithm</h3>
+                <div id="astar-grid"></div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <h4>Dijkstra's Results</h4>
+                <div>Path Length: <span id="dijkstra-length">-</span></div>
+                <div>Nodes Explored: <span id="dijkstra-explored">-</span></div>
+                <div>Time: <span id="dijkstra-time">-</span>ms</div>
+            </div>
+            <div class="stat-box">
+                <h4>A* Results</h4>
+                <div>Path Length: <span id="astar-length">-</span></div>
+                <div>Nodes Explored: <span id="astar-explored">-</span></div>
+                <div>Time: <span id="astar-time">-</span>ms</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 25;
+        let grid = [];
+        let startPos = {x: 2, y: 2};
+        let endPos = {x: 22, y: 22};
+
+        // 8-directional movement with realistic costs
+        const DIRECTIONS = [
+            {x: 0, y: 1, cost: 1.0},    // Down
+            {x: 1, y: 0, cost: 1.0},    // Right
+            {x: 0, y: -1, cost: 1.0},   // Up
+            {x: -1, y: 0, cost: 1.0},   // Left
+            {x: 1, y: 1, cost: 1.414},  // Down-Right (diagonal)
+            {x: -1, y: 1, cost: 1.414}, // Down-Left (diagonal)
+            {x: 1, y: -1, cost: 1.414}, // Up-Right (diagonal)
+            {x: -1, y: -1, cost: 1.414} // Up-Left (diagonal)
+        ];
+
+        class PriorityQueue {
+            constructor() {
+                this.elements = [];
+            }
+            
+            enqueue(element, priority) {
+                this.elements.push({element, priority});
+                this.elements.sort((a, b) => a.priority - b.priority);
+            }
+            
+            dequeue() {
+                return this.elements.shift().element;
+            }
+            
+            isEmpty() {
+                return this.elements.length === 0;
+            }
+        }
+
+        function initializeGrid() {
+            grid = [];
+            for (let y = 0; y < GRID_SIZE; y++) {
+                grid[y] = [];
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    grid[y][x] = {
+                        type: 'empty',
+                        dijkstraVisited: false,
+                        astarVisited: false,
+                        dijkstraPath: false,
+                        astarPath: false
+                    };
+                }
+            }
+            grid[startPos.y][startPos.x].type = 'start';
+            grid[endPos.y][endPos.x].type = 'end';
+        }
+
+        function createGridHTML(containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.onclick = () => handleCellClick(x, y);
+                    container.appendChild(cell);
+                }
+                container.appendChild(document.createElement('br'));
+            }
+        }
+
+        function updateGridDisplay() {
+            ['dijkstra-grid', 'astar-grid'].forEach(containerId => {
+                const container = document.getElementById(containerId);
+                const cells = container.querySelectorAll('.cell');
+                
+                cells.forEach(cell => {
+                    const x = parseInt(cell.dataset.x);
+                    const y = parseInt(cell.dataset.y);
+                    const gridCell = grid[y][x];
+                    
+                    cell.className = 'cell';
+                    
+                    if (containerId === 'dijkstra-grid') {
+                        if (gridCell.dijkstraPath) cell.classList.add('path');
+                        else if (gridCell.dijkstraVisited) cell.classList.add('visited');
+                    } else {
+                        if (gridCell.astarPath) cell.classList.add('path');
+                        else if (gridCell.astarVisited) cell.classList.add('visited');
+                    }
+                    
+                    if (gridCell.type === 'wall') cell.classList.add('wall');
+                    else if (gridCell.type === 'start') cell.classList.add('start');
+                    else if (gridCell.type === 'end') cell.classList.add('end');
+                    else cell.classList.add('empty');
+                });
+            });
+        }
+
+        function handleCellClick(x, y) {
+            const mode = document.querySelector('input[name="editMode"]:checked').value;
+            const cell = grid[y][x];
+            
+            if (mode === 'wall' && cell.type === 'empty') {
+                cell.type = 'wall';
+            } else if (mode === 'wall' && cell.type === 'wall') {
+                cell.type = 'empty';
+            } else if (mode === 'start') {
+                grid[startPos.y][startPos.x].type = 'empty';
+                startPos = {x, y};
+                cell.type = 'start';
+            } else if (mode === 'end') {
+                grid[endPos.y][endPos.x].type = 'empty';
+                endPos = {x, y};
+                cell.type = 'end';
+            }
+            
+            updateGridDisplay();
+        }
+
+        function isValidPosition(x, y) {
+            return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && grid[y][x].type !== 'wall';
+        }
+
+        function heuristic(pos1, pos2) {
+            // Euclidean distance for realistic pathfinding
+            const dx = Math.abs(pos1.x - pos2.x);
+            const dy = Math.abs(pos1.y - pos2.y);
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function reconstructPath(cameFrom, current, pathType) {
+            const path = [];
+            while (current) {
+                path.unshift(current);
+                grid[current.y][current.x][pathType] = true;
+                current = cameFrom[`${current.x},${current.y}`];
+            }
+            return path;
+        }
+
+        async function runDijkstra() {
+            clearPath();
+            const startTime = performance.now();
+            
+            const distances = {};
+            const cameFrom = {};
+            const pq = new PriorityQueue();
+            let exploredCount = 0;
+            
+            // Initialize distances
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    distances[`${x},${y}`] = Infinity;
+                }
+            }
+            
+            distances[`${startPos.x},${startPos.y}`] = 0;
+            pq.enqueue(startPos, 0);
+            
+            while (!pq.isEmpty()) {
+                const current = pq.dequeue();
+                const currentKey = `${current.x},${current.y}`;
+                
+                if (current.x === endPos.x && current.y === endPos.y) {
+                    const path = reconstructPath(cameFrom, current, 'dijkstraPath');
+                    const endTime = performance.now();
+                    
+                    document.getElementById('dijkstra-length').textContent = distances[currentKey].toFixed(2);
+                    document.getElementById('dijkstra-explored').textContent = exploredCount;
+                    document.getElementById('dijkstra-time').textContent = Math.round(endTime - startTime);
+                    
+                    updateGridDisplay();
+                    return;
+                }
+                
+                if (grid[current.y][current.x].type !== 'start') {
+                    grid[current.y][current.x].dijkstraVisited = true;
+                    exploredCount++;
+                }
+                
+                for (const dir of DIRECTIONS) {
+                    const next = {x: current.x + dir.x, y: current.y + dir.y};
+                    
+                    if (!isValidPosition(next.x, next.y)) continue;
+                    
+                    const newDist = distances[currentKey] + dir.cost;
+                    const nextKey = `${next.x},${next.y}`;
+                    
+                    if (newDist < distances[nextKey]) {
+                        distances[nextKey] = newDist;
+                        cameFrom[nextKey] = current;
+                        pq.enqueue(next, newDist);
+                    }
+                }
+                
+                updateGridDisplay();
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+        }
+
+        async function runAStar() {
+            clearPath();
+            const startTime = performance.now();
+            
+            const gScore = {};
+            const fScore = {};
+            const cameFrom = {};
+            const pq = new PriorityQueue();
+            let exploredCount = 0;
+            
+            // Initialize scores
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    gScore[`${x},${y}`] = Infinity;
+                    fScore[`${x},${y}`] = Infinity;
+                }
+            }
+            
+            const startKey = `${startPos.x},${startPos.y}`;
+            gScore[startKey] = 0;
+            fScore[startKey] = heuristic(startPos, endPos);
+            pq.enqueue(startPos, fScore[startKey]);
+            
+            while (!pq.isEmpty()) {
+                const current = pq.dequeue();
+                const currentKey = `${current.x},${current.y}`;
+                
+                if (current.x === endPos.x && current.y === endPos.y) {
+                    const path = reconstructPath(cameFrom, current, 'astarPath');
+                    const endTime = performance.now();
+                    
+                    document.getElementById('astar-length').textContent = gScore[currentKey].toFixed(2);
+                    document.getElementById('astar-explored').textContent = exploredCount;
+                    document.getElementById('astar-time').textContent = Math.round(endTime - startTime);
+                    
+                    updateGridDisplay();
+                    return;
+                }
+                
+                if (grid[current.y][current.x].type !== 'start') {
+                    grid[current.y][current.x].astarVisited = true;
+                    exploredCount++;
+                }
+                
+                for (const dir of DIRECTIONS) {
+                    const next = {x: current.x + dir.x, y: current.y + dir.y};
+                    
+                    if (!isValidPosition(next.x, next.y)) continue;
+                    
+                    const tentativeGScore = gScore[currentKey] + dir.cost;
+                    const nextKey = `${next.x},${next.y}`;
+                    
+                    if (tentativeGScore < gScore[nextKey]) {
+                        cameFrom[nextKey] = current;
+                        gScore[nextKey] = tentativeGScore;
+                        fScore[nextKey] = gScore[nextKey] + heuristic(next, endPos);
+                        pq.enqueue(next, fScore[nextKey]);
+                    }
+                }
+                
+                updateGridDisplay();
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+        }
+
+        function clearPath() {
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    grid[y][x].dijkstraVisited = false;
+                    grid[y][x].astarVisited = false;
+                    grid[y][x].dijkstraPath = false;
+                    grid[y][x].astarPath = false;
+                }
+            }
+            
+            // Reset stats
+            ['dijkstra', 'astar'].forEach(algo => {
+                document.getElementById(`${algo}-length`).textContent = '-';
+                document.getElementById(`${algo}-explored`).textContent = '-';
+                document.getElementById(`${algo}-time`).textContent = '-';
+            });
+            
+            updateGridDisplay();
+        }
+
+        function generateMaze() {
+            clearPath();
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (grid[y][x].type === 'empty' && Math.random() < 0.3) {
+                        grid[y][x].type = 'wall';
+                    }
+                }
+            }
+            updateGridDisplay();
+        }
+
+        function clearGrid() {
+            initializeGrid();
+            updateGridDisplay();
+            clearPath();
+        }
+
+        // Initialize the simulation
+        initializeGrid();
+        createGridHTML('dijkstra-grid');
+        createGridHTML('astar-grid');
+        updateGridDisplay();
+    </script>
+</body>
+</html>

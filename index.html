@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dijkstra's vs. A* Pathfinding</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .grid-section {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .algorithm-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .algorithm-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .grid-container {
+            display: grid;
+            border: 2px solid #ccc;
+            background-color: white;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        .node {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            border: 0.5px solid #eee;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .node:hover {
+            transform: scale(1.1);
+        }
+
+        .node.start {
+            background-color: orange;
+        }
+
+        .node.end {
+            background-color: purple;
+        }
+
+        .node.obstacle {
+            background-color: black;
+        }
+
+        .node.open {
+            background-color: lightgreen;
+            animation: pulse 0.3s ease;
+        }
+
+        .node.closed {
+            background-color: lightcoral;
+            animation: expand 0.2s ease;
+        }
+
+        .node.path {
+            background-color: deepskyblue;
+            animation: pathGlow 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes expand {
+            0% { transform: scale(0.8); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes pathGlow {
+            0% { background-color: deepskyblue; box-shadow: 0 0 0 rgba(0, 191, 255, 0.5); }
+            50% { background-color: #00bfff; box-shadow: 0 0 10px rgba(0, 191, 255, 1); }
+            100% { background-color: deepskyblue; box-shadow: 0 0 0 rgba(0, 191, 255, 0.5); }
+        }
+
+        #controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s ease;
+            min-width: 150px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:active {
+            background-color: #004085;
+        }
+
+        button.active {
+            background-color: #28a745;
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        #algorithm-info {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #555;
+            text-align: center;
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .mode-indicator {
+            margin-bottom: 15px;
+            padding: 10px 20px;
+            background: #e9ecef;
+            border-radius: 25px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Shortest Path Visualizer - Dijkstra's vs A*</h1>
+    
+    <div class="mode-indicator" id="modeIndicator">Click "Set Start" to begin</div>
+    
+    <div id="controls">
+        <button id="setStart" onclick="setMode('start')">Set Start (Click Grid)</button>
+        <button id="setEnd" onclick="setMode('end')">Set End (Click Grid)</button>
+        <button id="setObstacle" onclick="setMode('obstacle')">Draw Obstacles (Click/Drag)</button>
+        <button onclick="runBothAlgorithms()">Run Both Algorithms</button>
+        <button onclick="clearGrid()">Clear Grid</button>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: orange;"></div>
+            <span>Start</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: purple;"></div>
+            <span>End</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: black;"></div>
+            <span>Obstacle</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: lightgreen;"></div>
+            <span>Exploring</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: lightcoral;"></div>
+            <span>Visited</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: deepskyblue;"></div>
+            <span>Path</span>
+        </div>
+    </div>
+
+    <div class="grid-section">
+        <div class="algorithm-container">
+            <div class="algorithm-title">Dijkstra's Algorithm</div>
+            <div class="grid-container" id="dijkstraGrid"></div>
+        </div>
+        <div class="algorithm-container">
+            <div class="algorithm-title">A* Algorithm</div>
+            <div class="grid-container" id="astarGrid"></div>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-box">
+            <div class="stat-value" id="dijkstraNodes">0</div>
+            <div class="stat-label">Dijkstra Nodes Visited</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value" id="astarNodes">0</div>
+            <div class="stat-label">A* Nodes Visited</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value" id="dijkstraTime">0</div>
+            <div class="stat-label">Dijkstra Time (ms)</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value" id="astarTime">0</div>
+            <div class="stat-label">A* Time (ms)</div>
+        </div>
+    </div>
+
+    <div id="algorithm-info">
+        <p>
+            <strong>Instructions:</strong><br>
+            1. Click "Set Start" then click a cell on the grid.<br>
+            2. Click "Set End" then click another cell.<br>
+            3. Click "Draw Obstacles" then click/drag to create walls.<br>
+            4. Click "Run Both Algorithms" to see both pathfinding algorithms in action.<br>
+            5. Press "Clear Grid" to reset and try again.
+        </p>
+        <p>
+            <strong>Algorithm Comparison:</strong><br>
+            <strong>Dijkstra's:</strong> Explores uniformly in all directions, guarantees shortest path in weighted graphs.<br>
+            <strong>A*:</strong> Uses a heuristic to guide search toward the goal, typically faster and more efficient.<br>
+            Watch how A* generally visits fewer nodes by being more directed in its search!
+        </p>
+    </div>
+
+    <script>
+        const GRID_SIZE = 40;
+        const CELL_SIZE_PX = 12;
+
+        let dijkstraGrid = [];
+        let astarGrid = [];
+        let startNode = null;
+        let endNode = null;
+        let currentMode = null;
+        let isDrawing = false;
+
+        // Node class
+        class Node {
+            constructor(row, col, gridType) {
+                this.row = row;
+                this.col = col;
+                this.gridType = gridType;
+                this.element = document.createElement('div');
+                this.element.classList.add('node');
+                this.element.dataset.row = row;
+                this.element.dataset.col = col;
+
+                this.gScore = Infinity;
+                this.fScore = Infinity;
+                this.parent = null;
+                this.isObstacle = false;
+                this.cost = 1;
+
+                this.element.addEventListener('mousedown', (e) => {
+                    handleGridClick(this, e);
+                    if (currentMode === 'obstacle') {
+                        isDrawing = true;
+                    }
+                });
+                this.element.addEventListener('mouseover', (e) => {
+                    if (isDrawing && currentMode === 'obstacle') {
+                        handleGridClick(this, e);
+                    }
+                });
+            }
+
+            makeStart() { this.element.classList.add('start'); }
+            makeEnd() { this.element.classList.add('end'); }
+            makeObstacle() {
+                this.element.classList.add('obstacle');
+                this.isObstacle = true;
+                this.cost = Infinity;
+            }
+            makeOpen() {
+                if (!this.element.classList.contains('start') && !this.element.classList.contains('end')) {
+                    this.element.classList.add('open');
+                }
+            }
+            makeClosed() {
+                if (!this.element.classList.contains('start') && !this.element.classList.contains('end')) {
+                    this.element.classList.add('closed');
+                    this.element.classList.remove('open');
+                }
+            }
+            makePath() {
+                if (!this.element.classList.contains('start') && !this.element.classList.contains('end')) {
+                    this.element.classList.add('path');
+                }
+            }
+            reset() {
+                this.element.className = 'node';
+                this.gScore = Infinity;
+                this.fScore = Infinity;
+                this.parent = null;
+                this.isObstacle = false;
+                this.cost = 1;
+            }
+
+            getNeighbors() {
+                const neighbors = [];
+                const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+                const grid = this.gridType === 'dijkstra' ? dijkstraGrid : astarGrid;
+
+                for (const [dr, dc] of directions) {
+                    const nr = this.row + dr;
+                    const nc = this.col + dc;
+
+                    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+                        const neighbor = grid[nr][nc];
+                        if (!neighbor.isObstacle) {
+                            neighbors.push(neighbor);
+                        }
+                    }
+                }
+                return neighbors;
+            }
+        }
+
+        function createGrids() {
+            const dijkstraContainer = document.getElementById('dijkstraGrid');
+            const astarContainer = document.getElementById('astarGrid');
+            
+            dijkstraContainer.innerHTML = '';
+            astarContainer.innerHTML = '';
+            
+            dijkstraContainer.style.setProperty('--cell-size', `${CELL_SIZE_PX}px`);
+            dijkstraContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${CELL_SIZE_PX}px)`;
+            astarContainer.style.setProperty('--cell-size', `${CELL_SIZE_PX}px`);
+            astarContainer.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${CELL_SIZE_PX}px)`;
+
+            dijkstraGrid = [];
+            astarGrid = [];
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                const dijkstraRow = [];
+                const astarRow = [];
+                
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const dijkstraNode = new Node(r, c, 'dijkstra');
+                    const astarNode = new Node(r, c, 'astar');
+                    
+                    dijkstraRow.push(dijkstraNode);
+                    astarRow.push(astarNode);
+                    
+                    dijkstraContainer.appendChild(dijkstraNode.element);
+                    astarContainer.appendChild(astarNode.element);
+                }
+                
+                dijkstraGrid.push(dijkstraRow);
+                astarGrid.push(astarRow);
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            document.querySelectorAll('#controls button').forEach(btn => btn.classList.remove('active'));
+            
+            const modeIndicator = document.getElementById('modeIndicator');
+            
+            if (mode === 'start') {
+                document.getElementById('setStart').classList.add('active');
+                modeIndicator.textContent = 'Click on a cell to set the START point';
+            } else if (mode === 'end') {
+                document.getElementById('setEnd').classList.add('active');
+                modeIndicator.textContent = 'Click on a cell to set the END point';
+            } else if (mode === 'obstacle') {
+                document.getElementById('setObstacle').classList.add('active');
+                modeIndicator.textContent = 'Click and drag to draw obstacles';
+            }
+        }
+
+        function handleGridClick(node, event) {
+            const row = node.row;
+            const col = node.col;
+
+            if (currentMode === 'start') {
+                if (startNode) {
+                    dijkstraGrid[startNode.row][startNode.col].reset();
+                    astarGrid[startNode.row][startNode.col].reset();
+                }
+                startNode = { row, col };
+                dijkstraGrid[row][col].makeStart();
+                astarGrid[row][col].makeStart();
+                currentMode = null;
+                document.getElementById('modeIndicator').textContent = 'Start point set! Now set the end point.';
+                document.querySelectorAll('#controls button').forEach(btn => btn.classList.remove('active'));
+                
+            } else if (currentMode === 'end') {
+                if (endNode) {
+                    dijkstraGrid[endNode.row][endNode.col].reset();
+                    astarGrid[endNode.row][endNode.col].reset();
+                }
+                endNode = { row, col };
+                dijkstraGrid[row][col].makeEnd();
+                astarGrid[row][col].makeEnd();
+                currentMode = null;
+                document.getElementById('modeIndicator').textContent = 'End point set! Draw obstacles or run algorithms.';
+                document.querySelectorAll('#controls button').forEach(btn => btn.classList.remove('active'));
+                
+            } else if (currentMode === 'obstacle') {
+                if ((!startNode || (row !== startNode.row || col !== startNode.col)) &&
+                    (!endNode || (row !== endNode.row || col !== endNode.col))) {
+                    
+                    const dijkstraNode = dijkstraGrid[row][col];
+                    const astarNode = astarGrid[row][col];
+                    
+                    if (dijkstraNode.isObstacle) {
+                        dijkstraNode.reset();
+                        astarNode.reset();
+                    } else {
+                        dijkstraNode.makeObstacle();
+                        astarNode.makeObstacle();
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        function heuristic(nodeA, nodeB) {
+            return Math.abs(nodeA.row - nodeB.row) + Math.abs(nodeA.col - nodeB.col);
+        }
+
+        async function runAlgorithm(grid, algoType, statsPrefix) {
+            if (!startNode || !endNode) return { nodesVisited: 0, pathFound: false };
+
+            const startTime = performance.now();
+            let nodesVisited = 0;
+
+            // Reset pathfinding properties
+            grid.forEach(row => row.forEach(node => {
+                if (!node.element.classList.contains('start') &&
+                    !node.element.classList.contains('end') &&
+                    !node.element.classList.contains('obstacle')) {
+                    node.element.className = 'node';
+                }
+                node.gScore = Infinity;
+                node.fScore = Infinity;
+                node.parent = null;
+            }));
+
+            const startNodeObj = grid[startNode.row][startNode.col];
+            const endNodeObj = grid[endNode.row][endNode.col];
+            
+            startNodeObj.gScore = 0;
+            startNodeObj.fScore = algoType === 'a_star' ? heuristic(startNodeObj, endNodeObj) : 0;
+
+            const openSet = [{ score: startNodeObj.fScore, node: startNodeObj }];
+            const openSetHash = new Set([startNodeObj]);
+
+            while (openSet.length > 0) {
+                openSet.sort((a, b) => a.score - b.score);
+                const { node: currentNode } = openSet.shift();
+                openSetHash.delete(currentNode);
+
+                if (currentNode === endNodeObj) {
+                    // Reconstruct path
+                    const path = [];
+                    let current = currentNode;
+                    while (current) {
+                        path.unshift(current);
+                        current = current.parent;
+                    }
+
+                    // Animate path
+                    for (let i = 1; i < path.length - 1; i++) {
+                        await sleep(30);
+                        path[i].makePath();
+                    }
+
+                    const endTime = performance.now();
+                    return { 
+                        nodesVisited, 
+                        pathFound: true, 
+                        time: Math.round(endTime - startTime),
+                        pathLength: path.length 
+                    };
+                }
+
+                if (currentNode !== startNodeObj && currentNode !== endNodeObj) {
+                    currentNode.makeClosed();
+                    nodesVisited++;
+                    await sleep(10);
+                }
+
+                const neighbors = currentNode.getNeighbors();
+                for (const neighbor of neighbors) {
+                    const tempGScore = currentNode.gScore + neighbor.cost;
+
+                    if (tempGScore < neighbor.gScore) {
+                        neighbor.parent = currentNode;
+                        neighbor.gScore = tempGScore;
+                        neighbor.fScore = algoType === 'a_star' 
+                            ? neighbor.gScore + heuristic(neighbor, endNodeObj)
+                            : neighbor.gScore;
+
+                        if (!openSetHash.has(neighbor)) {
+                            openSet.push({ score: neighbor.fScore, node: neighbor });
+                            openSetHash.add(neighbor);
+                            if (neighbor !== startNodeObj && neighbor !== endNodeObj) {
+                                neighbor.makeOpen();
+                                await sleep(10);
+                            }
+                        }
+                    }
+                }
+            }
+
+            const endTime = performance.now();
+            return { 
+                nodesVisited, 
+                pathFound: false, 
+                time: Math.round(endTime - startTime) 
+            };
+        }
+
+        async function runBothAlgorithms() {
+            if (!startNode || !endNode) {
+                alert("Please set start and end nodes first!");
+                return;
+            }
+
+            // Clear previous results
+            dijkstraGrid.forEach(row => row.forEach(node => {
+                if (!node.element.classList.contains('start') &&
+                    !node.element.classList.contains('end') &&
+                    !node.element.classList.contains('obstacle')) {
+                    node.element.className = 'node';
+                }
+            }));
+            astarGrid.forEach(row => row.forEach(node => {
+                if (!node.element.classList.contains('start') &&
+                    !node.element.classList.contains('end') &&
+                    !node.element.classList.contains('obstacle')) {
+                    node.element.className = 'node';
+                }
+            }));
+
+            document.getElementById('modeIndicator').textContent = 'Running algorithms...';
+
+            // Run both algorithms simultaneously
+            const [dijkstraResult, astarResult] = await Promise.all([
+                runAlgorithm(dijkstraGrid, 'dijkstra', 'dijkstra'),
+                runAlgorithm(astarGrid, 'a_star', 'astar')
+            ]);
+
+            // Update stats
+            document.getElementById('dijkstraNodes').textContent = dijkstraResult.nodesVisited;
+            document.getElementById('astarNodes').textContent = astarResult.nodesVisited;
+            document.getElementById('dijkstraTime').textContent = dijkstraResult.time || 0;
+            document.getElementById('astarTime').textContent = astarResult.time || 0;
+
+            if (!dijkstraResult.pathFound && !astarResult.pathFound) {
+                document.getElementById('modeIndicator').textContent = 'No path found!';
+            } else {
+                const efficiency = ((dijkstraResult.nodesVisited - astarResult.nodesVisited) / dijkstraResult.nodesVisited * 100).toFixed(1);
+                document.getElementById('modeIndicator').textContent = 
+                    `Complete! A* was ${efficiency}% more efficient (visited ${dijkstraResult.nodesVisited - astarResult.nodesVisited} fewer nodes)`;
+            }
+        }
+
+        function clearGrid() {
+            startNode = null;
+            endNode = null;
+            currentMode = null;
+            isDrawing = false;
+            
+            createGrids();
+            
+            // Reset stats
+            document.getElementById('dijkstraNodes').textContent = '0';
+            document.getElementById('astarNodes').textContent = '0';
+            document.getElementById('dijkstraTime').textContent = '0';
+            document.getElementById('astarTime').textContent = '0';
+            
+            document.getElementById('modeIndicator').textContent = 'Grid cleared! Click "Set Start" to begin.';
+            document.querySelectorAll('#controls button').forEach(btn => btn.classList.remove('active'));
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Prevent context menu on grids
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.classList.contains('node')) {
+                e.preventDefault();
+            }
+        });
+
+        // Initialize
+        createGrids();
+    </script>
+</body>
+</html>
