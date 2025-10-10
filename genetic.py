@@ -1,6 +1,7 @@
 import random
 def f(x):
-    return x**3 - 60*x**2 + 900*x + 100
+    # return x**3 - 60*x**2 + 900*x + 100
+    return x**2
 
 # GA Parameters
 POP_SIZE = 100
